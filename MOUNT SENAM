@@ -1,0 +1,263 @@
+-- YXI MOUNT SENAM
+-- Auto Teleport CP1-CP36 -> Finish -> Fire ReturnToBaseEvent -> Loop
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local Checkpoints = workspace:WaitForChild("Checkpoints")
+
+-- Settings
+local running = false
+local delayPerCP = 0.5
+local useTween = false
+local tweenSpeed = 80
+
+-- Waypoint tambahan setelah CP tertentu
+-- key = nomor CP, value = {x, y, z}
+local extraWaypoints = {
+    [5] = {-3517, 165, 1191},
+    [33] = {-11087, 1291, 1214},
+}
+
+-- ============ UI ============
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "YXIMountSenam"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = game:GetService("CoreGui")
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.new(0, 300, 0, 280)
+Main.Position = UDim2.new(0.5, -150, 0.5, -140)
+Main.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Draggable = true
+Main.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner", Main)
+UICorner.CornerRadius = UDim.new(0, 10)
+
+local UIStroke = Instance.new("UIStroke", Main)
+UIStroke.Color = Color3.fromRGB(0, 170, 255)
+UIStroke.Thickness = 2
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+Title.BorderSizePixel = 0
+Title.Text = "YXI MOUNT SENAM"
+Title.TextColor3 = Color3.fromRGB(0, 200, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+Title.Parent = Main
+
+local TitleCorner = Instance.new("UICorner", Title)
+TitleCorner.CornerRadius = UDim.new(0, 10)
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 16
+CloseBtn.Parent = Main
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(1, -20, 0, 30)
+Status.Position = UDim2.new(0, 10, 0, 50)
+Status.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+Status.BorderSizePixel = 0
+Status.Text = "Status: Idle"
+Status.TextColor3 = Color3.fromRGB(255, 255, 255)
+Status.Font = Enum.Font.Gotham
+Status.TextSize = 14
+Status.Parent = Main
+Instance.new("UICorner", Status).CornerRadius = UDim.new(0, 6)
+
+local CurrentCP = Instance.new("TextLabel")
+CurrentCP.Size = UDim2.new(1, -20, 0, 30)
+CurrentCP.Position = UDim2.new(0, 10, 0, 85)
+CurrentCP.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+CurrentCP.BorderSizePixel = 0
+CurrentCP.Text = "Current: -"
+CurrentCP.TextColor3 = Color3.fromRGB(255, 255, 255)
+CurrentCP.Font = Enum.Font.Gotham
+CurrentCP.TextSize = 14
+CurrentCP.Parent = Main
+Instance.new("UICorner", CurrentCP).CornerRadius = UDim.new(0, 6)
+
+local DelayLabel = Instance.new("TextLabel")
+DelayLabel.Size = UDim2.new(1, -20, 0, 20)
+DelayLabel.Position = UDim2.new(0, 10, 0, 120)
+DelayLabel.BackgroundTransparency = 1
+DelayLabel.Text = "Delay per CP (detik):"
+DelayLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+DelayLabel.Font = Enum.Font.Gotham
+DelayLabel.TextSize = 12
+DelayLabel.TextXAlignment = Enum.TextXAlignment.Left
+DelayLabel.Parent = Main
+
+local DelayBox = Instance.new("TextBox")
+DelayBox.Size = UDim2.new(1, -20, 0, 28)
+DelayBox.Position = UDim2.new(0, 10, 0, 142)
+DelayBox.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+DelayBox.BorderSizePixel = 0
+DelayBox.Text = tostring(delayPerCP)
+DelayBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+DelayBox.Font = Enum.Font.Gotham
+DelayBox.TextSize = 14
+DelayBox.Parent = Main
+Instance.new("UICorner", DelayBox).CornerRadius = UDim.new(0, 6)
+
+DelayBox.FocusLost:Connect(function()
+    local n = tonumber(DelayBox.Text)
+    if n and n >= 0 then
+        delayPerCP = n
+    else
+        DelayBox.Text = tostring(delayPerCP)
+    end
+end)
+
+local StartBtn = Instance.new("TextButton")
+StartBtn.Size = UDim2.new(1, -20, 0, 35)
+StartBtn.Position = UDim2.new(0, 10, 0, 180)
+StartBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 100)
+StartBtn.Text = "START"
+StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StartBtn.Font = Enum.Font.GothamBold
+StartBtn.TextSize = 16
+StartBtn.Parent = Main
+Instance.new("UICorner", StartBtn).CornerRadius = UDim.new(0, 6)
+
+local StopBtn = Instance.new("TextButton")
+StopBtn.Size = UDim2.new(1, -20, 0, 35)
+StopBtn.Position = UDim2.new(0, 10, 0, 225)
+StopBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+StopBtn.Text = "STOP"
+StopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StopBtn.Font = Enum.Font.GothamBold
+StopBtn.TextSize = 16
+StopBtn.Parent = Main
+Instance.new("UICorner", StopBtn).CornerRadius = UDim.new(0, 6)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    running = false
+    ScreenGui:Destroy()
+end)
+
+-- ============ Functions ============
+local function getHRP()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    return char:WaitForChild("HumanoidRootPart"), char:FindFirstChildOfClass("Humanoid")
+end
+
+local function teleportToCFrame(cframe)
+    local hrp = getHRP()
+    if not hrp then return end
+    if useTween then
+        local dist = (hrp.Position - cframe.Position).Magnitude
+        local time = dist / tweenSpeed
+        local tw = TweenService:Create(hrp, TweenInfo.new(time, Enum.EasingStyle.Linear), {CFrame = cframe})
+        tw:Play()
+        tw.Completed:Wait()
+    else
+        hrp.CFrame = cframe
+    end
+end
+
+local function teleportToPos(x, y, z)
+    teleportToCFrame(CFrame.new(x, y, z))
+end
+
+local function getCPPart(name)
+    local obj = Checkpoints:FindFirstChild(name)
+    if not obj then return nil end
+    if obj:IsA("BasePart") then
+        return obj
+    else
+        for _, v in ipairs(obj:GetDescendants()) do
+            if v:IsA("BasePart") then
+                return v
+            end
+        end
+    end
+    return nil
+end
+
+local function runLoop()
+    while running do
+        -- CP1 - CP36
+        for i = 1, 36 do
+            if not running then return end
+            local cpName = "CP" .. i
+            local part = getCPPart(cpName)
+            if part then
+                CurrentCP.Text = "Current: " .. cpName
+                Status.Text = "Status: Teleporting..."
+                teleportToCFrame(part.CFrame + Vector3.new(0, 3, 0))
+                task.wait(delayPerCP)
+            else
+                CurrentCP.Text = "Current: " .. cpName .. " (NOT FOUND)"
+                task.wait(0.1)
+            end
+
+            -- Cek waypoint tambahan setelah CP ini
+            local wp = extraWaypoints[i]
+            if wp and running then
+                CurrentCP.Text = string.format("Current: Waypoint (%d,%d,%d)", wp[1], wp[2], wp[3])
+                Status.Text = "Status: Teleport waypoint..."
+                teleportToPos(wp[1], wp[2], wp[3])
+                task.wait(delayPerCP)
+            end
+        end
+
+        if not running then return end
+
+        -- Finish
+        local finish = getCPPart("Finish")
+        if finish then
+            CurrentCP.Text = "Current: Finish"
+            Status.Text = "Status: Teleport ke Finish..."
+            teleportToCFrame(finish.CFrame + Vector3.new(0, 3, 0))
+            task.wait(delayPerCP)
+        end
+
+        if not running then return end
+
+        -- Execute ReturnToBaseEvent
+        Status.Text = "Status: Firing ReturnToBaseEvent..."
+        local ok, err = pcall(function()
+            local Event = ReplicatedStorage:WaitForChild("ReturnToBaseEvent", 5)
+            Event:FireServer(0)
+        end)
+        if not ok then
+            Status.Text = "Status: Error fire event"
+        end
+
+        task.wait(2)
+    end
+end
+
+StartBtn.MouseButton1Click:Connect(function()
+    if running then return end
+    running = true
+    Status.Text = "Status: Running..."
+    task.spawn(runLoop)
+end)
+
+StopBtn.MouseButton1Click:Connect(function()
+    running = false
+    Status.Text = "Status: Stopped"
+    CurrentCP.Text = "Current: -"
+end)
+
+Status.Text = "Status: Ready"
+print("[YXI MOUNT SENAM] Loaded successfully!")
