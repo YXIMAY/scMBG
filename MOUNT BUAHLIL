@@ -1,0 +1,289 @@
+-- YXI MOUNT BUAHLIL
+-- Auto Teleport CP0-CP25 + Auto Drop
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local Checkpoints = workspace:WaitForChild("Checkpoints")
+local DropEvent = ReplicatedStorage:WaitForChild("CP_DropToStart")
+
+-- Variables
+local running = false
+local tweenSpeed = 0.5 -- detik per checkpoint (semakin kecil semakin cepat)
+local delayPerCP = 0.3
+local delayAfterDrop = 1
+
+-- Fungsi mendapatkan karakter
+local function getCharacter()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart")
+    return char, hrp
+end
+
+-- Fungsi teleport tween (anti kick)
+local function tweenTo(position)
+    local char, hrp = getCharacter()
+    local distance = (hrp.Position - position).Magnitude
+    local duration = math.max(distance / 150, 0.2)
+    
+    local tween = TweenService:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = CFrame.new(position)})
+    tween:Play()
+    tween.Completed:Wait()
+end
+
+-- Fungsi mendapatkan posisi checkpoint
+local function getCPPosition(cp)
+    if cp:IsA("BasePart") then
+        return cp.Position
+    elseif cp:IsA("Model") then
+        if cp.PrimaryPart then
+            return cp.PrimaryPart.Position
+        else
+            for _, v in pairs(cp:GetDescendants()) do
+                if v:IsA("BasePart") then
+                    return v.Position
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- Fungsi loop auto checkpoint
+local function autoCheckpoint()
+    while running do
+        for i = 0, 25 do
+            if not running then break end
+            local cp = Checkpoints:FindFirstChild("CP" .. i)
+            if cp then
+                local pos = getCPPosition(cp)
+                if pos then
+                    tweenTo(pos + Vector3.new(0, 3, 0))
+                    task.wait(delayPerCP)
+                end
+            end
+        end
+        
+        if not running then break end
+        
+        -- Execute drop script
+        pcall(function()
+            DropEvent:FireServer()
+        end)
+        
+        task.wait(delayAfterDrop)
+    end
+end
+
+-- ================= UI =================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "YXIMountBuahlil"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = game:GetService("CoreGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 300, 0, 250)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -125)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = MainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(255, 100, 200)
+UIStroke.Thickness = 2
+UIStroke.Parent = MainFrame
+
+-- Title Bar
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 40)
+TitleBar.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 12)
+TitleCorner.Parent = TitleBar
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -40, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "🚀 YXI MOUNT BUAHLIL"
+Title.TextColor3 = Color3.fromRGB(255, 100, 200)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 16
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TitleBar
+
+-- Close Button
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 14
+CloseBtn.Parent = TitleBar
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 6)
+CloseCorner.Parent = CloseBtn
+
+-- Status Label
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, -20, 0, 30)
+StatusLabel.Position = UDim2.new(0, 10, 0, 50)
+StatusLabel.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+StatusLabel.Text = "Status: OFF"
+StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+StatusLabel.Font = Enum.Font.GothamBold
+StatusLabel.TextSize = 14
+StatusLabel.Parent = MainFrame
+
+local StatusCorner = Instance.new("UICorner")
+StatusCorner.CornerRadius = UDim.new(0, 6)
+StatusCorner.Parent = StatusLabel
+
+-- Toggle Button
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(1, -20, 0, 45)
+ToggleBtn.Position = UDim2.new(0, 10, 0, 90)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 80)
+ToggleBtn.Text = "▶ START AUTO CP"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.TextSize = 16
+ToggleBtn.Parent = MainFrame
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 8)
+ToggleCorner.Parent = ToggleBtn
+
+-- Manual Drop Button
+local DropBtn = Instance.new("TextButton")
+DropBtn.Size = UDim2.new(1, -20, 0, 35)
+DropBtn.Position = UDim2.new(0, 10, 0, 145)
+DropBtn.BackgroundColor3 = Color3.fromRGB(80, 100, 200)
+DropBtn.Text = "💧 Manual Drop to Start"
+DropBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+DropBtn.Font = Enum.Font.GothamBold
+DropBtn.TextSize = 13
+DropBtn.Parent = MainFrame
+
+local DropCorner = Instance.new("UICorner")
+DropCorner.CornerRadius = UDim.new(0, 8)
+DropCorner.Parent = DropBtn
+
+-- Speed Label
+local SpeedLabel = Instance.new("TextLabel")
+SpeedLabel.Size = UDim2.new(1, -20, 0, 20)
+SpeedLabel.Position = UDim2.new(0, 10, 0, 188)
+SpeedLabel.BackgroundTransparency = 1
+SpeedLabel.Text = "Delay per CP: " .. delayPerCP .. "s"
+SpeedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+SpeedLabel.Font = Enum.Font.Gotham
+SpeedLabel.TextSize = 12
+SpeedLabel.Parent = MainFrame
+
+-- Speed Buttons
+local FastBtn = Instance.new("TextButton")
+FastBtn.Size = UDim2.new(0, 85, 0, 28)
+FastBtn.Position = UDim2.new(0, 10, 0, 210)
+FastBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+FastBtn.Text = "Fast"
+FastBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+FastBtn.Font = Enum.Font.GothamBold
+FastBtn.TextSize = 12
+FastBtn.Parent = MainFrame
+
+local FastCorner = Instance.new("UICorner")
+FastCorner.CornerRadius = UDim.new(0, 6)
+FastCorner.Parent = FastBtn
+
+local NormalBtn = Instance.new("TextButton")
+NormalBtn.Size = UDim2.new(0, 85, 0, 28)
+NormalBtn.Position = UDim2.new(0, 105, 0, 210)
+NormalBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+NormalBtn.Text = "Normal"
+NormalBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+NormalBtn.Font = Enum.Font.GothamBold
+NormalBtn.TextSize = 12
+NormalBtn.Parent = MainFrame
+
+local NormalCorner = Instance.new("UICorner")
+NormalCorner.CornerRadius = UDim.new(0, 6)
+NormalCorner.Parent = NormalBtn
+
+local SafeBtn = Instance.new("TextButton")
+SafeBtn.Size = UDim2.new(0, 85, 0, 28)
+SafeBtn.Position = UDim2.new(0, 200, 0, 210)
+SafeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+SafeBtn.Text = "Safe"
+SafeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SafeBtn.Font = Enum.Font.GothamBold
+SafeBtn.TextSize = 12
+SafeBtn.Parent = MainFrame
+
+local SafeCorner = Instance.new("UICorner")
+SafeCorner.CornerRadius = UDim.new(0, 6)
+SafeCorner.Parent = SafeBtn
+
+-- ============ Button Logic ============
+ToggleBtn.MouseButton1Click:Connect(function()
+    running = not running
+    if running then
+        ToggleBtn.Text = "⏸ STOP AUTO CP"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+        StatusLabel.Text = "Status: RUNNING"
+        StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+        task.spawn(autoCheckpoint)
+    else
+        ToggleBtn.Text = "▶ START AUTO CP"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 80)
+        StatusLabel.Text = "Status: OFF"
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+    end
+end)
+
+DropBtn.MouseButton1Click:Connect(function()
+    pcall(function()
+        DropEvent:FireServer()
+    end)
+end)
+
+FastBtn.MouseButton1Click:Connect(function()
+    delayPerCP = 0.1
+    delayAfterDrop = 0.5
+    SpeedLabel.Text = "Delay per CP: " .. delayPerCP .. "s"
+end)
+
+NormalBtn.MouseButton1Click:Connect(function()
+    delayPerCP = 0.3
+    delayAfterDrop = 1
+    SpeedLabel.Text = "Delay per CP: " .. delayPerCP .. "s"
+end)
+
+SafeBtn.MouseButton1Click:Connect(function()
+    delayPerCP = 0.6
+    delayAfterDrop = 1.5
+    SpeedLabel.Text = "Delay per CP: " .. delayPerCP .. "s"
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    running = false
+    ScreenGui:Destroy()
+end)
+
+print("✅ YXI MOUNT BUAHLIL Loaded!")
