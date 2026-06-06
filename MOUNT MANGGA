@@ -1,0 +1,398 @@
+-- YXI MOUNT MANGGA - Auto Teleport Script
+-- CP1-CP40 > Finish > CP42-CP59 > Finish2 > Basecamp(Event) > Loop
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+-- ========== CONFIG ==========
+local DELAY_PER_CP = 0.5
+local TELEPORT_OFFSET = Vector3.new(0, 3, 0)
+local running = false
+-- ============================
+
+local CheckpointsFolder = workspace:WaitForChild("Checkpoints")
+local Jalur2Folder = CheckpointsFolder:WaitForChild("Jalur2")
+local BasecampEvent = ReplicatedStorage:WaitForChild("ReturnToBaseEvent")
+
+-- Function teleport
+local function teleportTo(part)
+	local char = LocalPlayer.Character
+	if not char then return end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+	if typeof(part) == "Instance" then
+		hrp.CFrame = part.CFrame + TELEPORT_OFFSET
+	end
+end
+
+-- Cari part
+local function findPart(parent, name)
+	local obj = parent:FindFirstChild(name)
+	if obj and obj:IsA("BasePart") then
+		return obj
+	end
+	for _, v in ipairs(parent:GetDescendants()) do
+		if v.Name == name and v:IsA("BasePart") then
+			return v
+		end
+	end
+	return nil
+end
+
+-- ========== UI ==========
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "YXIMountManggaGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = game:GetService("CoreGui")
+
+-- Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 300, 0, 270)
+MainFrame.Position = UDim2.new(0.5, -150, 0.3, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = MainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(0, 170, 255)
+UIStroke.Thickness = 2
+UIStroke.Parent = MainFrame
+
+-- Title Bar
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 40)
+TitleBar.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 12)
+TitleCorner.Parent = TitleBar
+
+-- Garis bawah title
+local TitleLine = Instance.new("Frame")
+TitleLine.Size = UDim2.new(1, 0, 0, 2)
+TitleLine.Position = UDim2.new(0, 0, 1, -2)
+TitleLine.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+TitleLine.BorderSizePixel = 0
+TitleLine.Parent = TitleBar
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -80, 1, 0)
+TitleLabel.Position = UDim2.new(0, 12, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "⛰️ YXI MOUNT MANGGA"
+TitleLabel.TextColor3 = Color3.fromRGB(0, 220, 255)
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextSize = 15
+TitleLabel.Parent = TitleBar
+
+-- Minimize Button
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 30, 0, 25)
+MinBtn.Position = UDim2.new(1, -68, 0, 8)
+MinBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+MinBtn.Text = "—"
+MinBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 16
+MinBtn.BorderSizePixel = 0
+MinBtn.Parent = TitleBar
+
+local MinCorner = Instance.new("UICorner")
+MinCorner.CornerRadius = UDim.new(0, 6)
+MinCorner.Parent = MinBtn
+
+-- Close Button
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 25)
+CloseBtn.Position = UDim2.new(1, -35, 0, 8)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 14
+CloseBtn.BorderSizePixel = 0
+CloseBtn.Parent = TitleBar
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 6)
+CloseCorner.Parent = CloseBtn
+
+-- Content Frame
+local Content = Instance.new("Frame")
+Content.Size = UDim2.new(1, -20, 1, -50)
+Content.Position = UDim2.new(0, 10, 0, 45)
+Content.BackgroundTransparency = 1
+Content.Parent = MainFrame
+
+-- Status Label
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, 0, 0, 25)
+StatusLabel.Position = UDim2.new(0, 0, 0, 0)
+StatusLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+StatusLabel.Text = "  Status: Idle"
+StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextSize = 12
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.BorderSizePixel = 0
+StatusLabel.Parent = Content
+
+local StLCorner = Instance.new("UICorner")
+StLCorner.CornerRadius = UDim.new(0, 6)
+StLCorner.Parent = StatusLabel
+
+-- Current CP Label
+local CPLabel = Instance.new("TextLabel")
+CPLabel.Size = UDim2.new(1, 0, 0, 25)
+CPLabel.Position = UDim2.new(0, 0, 0, 30)
+CPLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+CPLabel.Text = "  CP: -"
+CPLabel.TextColor3 = Color3.fromRGB(0, 255, 150)
+CPLabel.Font = Enum.Font.Gotham
+CPLabel.TextSize = 12
+CPLabel.TextXAlignment = Enum.TextXAlignment.Left
+CPLabel.BorderSizePixel = 0
+CPLabel.Parent = Content
+
+local CPLCorner = Instance.new("UICorner")
+CPLCorner.CornerRadius = UDim.new(0, 6)
+CPLCorner.Parent = CPLabel
+
+-- Loop Counter
+local LoopLabel = Instance.new("TextLabel")
+LoopLabel.Size = UDim2.new(1, 0, 0, 25)
+LoopLabel.Position = UDim2.new(0, 0, 0, 60)
+LoopLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+LoopLabel.Text = "  Loop: 0"
+LoopLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+LoopLabel.Font = Enum.Font.Gotham
+LoopLabel.TextSize = 12
+LoopLabel.TextXAlignment = Enum.TextXAlignment.Left
+LoopLabel.BorderSizePixel = 0
+LoopLabel.Parent = Content
+
+local LLCorner = Instance.new("UICorner")
+LLCorner.CornerRadius = UDim.new(0, 6)
+LLCorner.Parent = LoopLabel
+
+-- Delay Input
+local DelayLabel = Instance.new("TextLabel")
+DelayLabel.Size = UDim2.new(0.4, 0, 0, 25)
+DelayLabel.Position = UDim2.new(0, 0, 0, 98)
+DelayLabel.BackgroundTransparency = 1
+DelayLabel.Text = "Delay (s):"
+DelayLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+DelayLabel.Font = Enum.Font.Gotham
+DelayLabel.TextSize = 12
+DelayLabel.TextXAlignment = Enum.TextXAlignment.Left
+DelayLabel.Parent = Content
+
+local DelayBox = Instance.new("TextBox")
+DelayBox.Size = UDim2.new(0.55, 0, 0, 25)
+DelayBox.Position = UDim2.new(0.45, 0, 0, 98)
+DelayBox.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+DelayBox.Text = tostring(DELAY_PER_CP)
+DelayBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+DelayBox.Font = Enum.Font.Gotham
+DelayBox.TextSize = 12
+DelayBox.BorderSizePixel = 0
+DelayBox.Parent = Content
+
+local DBCorner = Instance.new("UICorner")
+DBCorner.CornerRadius = UDim.new(0, 6)
+DBCorner.Parent = DelayBox
+
+DelayBox.FocusLost:Connect(function()
+	local n = tonumber(DelayBox.Text)
+	if n and n >= 0 then
+		DELAY_PER_CP = n
+	else
+		DelayBox.Text = tostring(DELAY_PER_CP)
+	end
+end)
+
+-- Start Button
+local StartBtn = Instance.new("TextButton")
+StartBtn.Size = UDim2.new(1, 0, 0, 35)
+StartBtn.Position = UDim2.new(0, 0, 0, 133)
+StartBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 100)
+StartBtn.Text = "▶  START AUTO TP"
+StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StartBtn.Font = Enum.Font.GothamBold
+StartBtn.TextSize = 14
+StartBtn.BorderSizePixel = 0
+StartBtn.Parent = Content
+
+local SBCorner = Instance.new("UICorner")
+SBCorner.CornerRadius = UDim.new(0, 8)
+SBCorner.Parent = StartBtn
+
+-- Stop Button
+local StopBtn = Instance.new("TextButton")
+StopBtn.Size = UDim2.new(1, 0, 0, 35)
+StopBtn.Position = UDim2.new(0, 0, 0, 175)
+StopBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+StopBtn.Text = "■  STOP"
+StopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StopBtn.Font = Enum.Font.GothamBold
+StopBtn.TextSize = 14
+StopBtn.BorderSizePixel = 0
+StopBtn.Parent = Content
+
+local StBCorner = Instance.new("UICorner")
+StBCorner.CornerRadius = UDim.new(0, 8)
+StBCorner.Parent = StopBtn
+
+-- Floating reopen button (YXI branded)
+local ReopenBtn = Instance.new("TextButton")
+ReopenBtn.Size = UDim2.new(0, 55, 0, 55)
+ReopenBtn.Position = UDim2.new(0, 15, 0.5, -27)
+ReopenBtn.BackgroundColor3 = Color3.fromRGB(0, 140, 255)
+ReopenBtn.Text = "YXI"
+ReopenBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ReopenBtn.Font = Enum.Font.GothamBold
+ReopenBtn.TextSize = 14
+ReopenBtn.Visible = false
+ReopenBtn.Active = true
+ReopenBtn.Draggable = true
+ReopenBtn.Parent = ScreenGui
+
+local RBCorner = Instance.new("UICorner")
+RBCorner.CornerRadius = UDim.new(1, 0)
+RBCorner.Parent = ReopenBtn
+
+local RBStroke = Instance.new("UIStroke")
+RBStroke.Color = Color3.fromRGB(0, 220, 255)
+RBStroke.Thickness = 2
+RBStroke.Parent = ReopenBtn
+
+-- Minimize logic
+MinBtn.MouseButton1Click:Connect(function()
+	MainFrame.Visible = false
+	ReopenBtn.Visible = true
+end)
+
+ReopenBtn.MouseButton1Click:Connect(function()
+	MainFrame.Visible = true
+	ReopenBtn.Visible = false
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+	running = false
+	ScreenGui:Destroy()
+end)
+
+-- ========== AUTO TP LOGIC ==========
+local loopCount = 0
+
+local function setStatus(txt, color)
+	StatusLabel.Text = "  Status: " .. txt
+	StatusLabel.TextColor3 = color or Color3.fromRGB(255, 255, 255)
+end
+
+local function setCP(txt)
+	CPLabel.Text = "  CP: " .. txt
+end
+
+local function runRoute()
+	while running do
+		loopCount = loopCount + 1
+		LoopLabel.Text = "  Loop: " .. loopCount
+
+		-- ===== FASE 1: CP1 - CP40 =====
+		setStatus("Jalur 1 (CP1-CP40)", Color3.fromRGB(0, 255, 100))
+		for i = 1, 40 do
+			if not running then return end
+			local cp = findPart(CheckpointsFolder, "CP" .. i)
+			if cp then
+				teleportTo(cp)
+				setCP("CP" .. i .. " / 40")
+			else
+				setCP("CP" .. i .. " (not found)")
+			end
+			task.wait(DELAY_PER_CP)
+		end
+
+		if not running then return end
+
+		-- ===== FASE 2: Finish =====
+		setStatus("Finish!", Color3.fromRGB(255, 200, 0))
+		local finish = findPart(CheckpointsFolder, "Finish")
+		if finish then
+			teleportTo(finish)
+			setCP("Finish ✅")
+		end
+		task.wait(DELAY_PER_CP)
+
+		if not running then return end
+
+		-- ===== FASE 3: CP42 - CP59 =====
+		setStatus("Jalur 2 (CP42-CP59)", Color3.fromRGB(100, 200, 255))
+		for i = 42, 59 do
+			if not running then return end
+			local cp = findPart(Jalur2Folder, "CP" .. i) or findPart(CheckpointsFolder, "CP" .. i)
+			if cp then
+				teleportTo(cp)
+				setCP("CP" .. i .. " / 59")
+			else
+				setCP("CP" .. i .. " (not found)")
+			end
+			task.wait(DELAY_PER_CP)
+		end
+
+		if not running then return end
+
+		-- ===== FASE 4: Finish2 =====
+		setStatus("Finish2!", Color3.fromRGB(255, 200, 0))
+		local finish2 = findPart(Jalur2Folder, "Finish2") or findPart(CheckpointsFolder, "Finish2")
+		if finish2 then
+			teleportTo(finish2)
+			setCP("Finish2 ✅")
+		end
+		task.wait(DELAY_PER_CP)
+
+		if not running then return end
+
+		-- ===== FASE 5: Basecamp via Event =====
+		setStatus("Return to Basecamp...", Color3.fromRGB(255, 150, 0))
+		setCP("Basecamp 🏕️")
+		BasecampEvent:FireServer(0)
+
+		-- Delay 2 detik sebelum ulang
+		setStatus("Waiting 2s...", Color3.fromRGB(255, 255, 100))
+		task.wait(2)
+	end
+end
+
+StartBtn.MouseButton1Click:Connect(function()
+	if running then return end
+	running = true
+	loopCount = 0
+	setStatus("Running", Color3.fromRGB(0, 255, 100))
+	StartBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+	StartBtn.Text = "▶  RUNNING..."
+	task.spawn(runRoute)
+end)
+
+StopBtn.MouseButton1Click:Connect(function()
+	running = false
+	setStatus("Stopped", Color3.fromRGB(255, 100, 100))
+	setCP("-")
+	StartBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 100)
+	StartBtn.Text = "▶  START AUTO TP"
+end)
+
+setStatus("Ready", Color3.fromRGB(0, 255, 150))
+print("[YXI MOUNT MANGGA] Script loaded successfully!")
